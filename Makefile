@@ -1,22 +1,16 @@
-all: main
+# definizione del compilatore e dei flag di compilazione
+# che vengono usate dalle regole implicite
+CC=gcc
+CFLAGS=-g -Wall -O -std=c99
+LDLIBS=-lm -lrt -pthread
 
-CC = clang
-override CFLAGS += -g -Wno-everything -pthread -lm
+#	eseguibili
+EXECS=farm
 
-SRCS = $(shell find . -name '.ccls-cache' -type d -prune -o -type f -name '*.c' -print)
-OBJS = $(SRCS:.c=.o)
-DEPS = $(SRCS:.c=.d)
+all: $(EXECS)
 
-%.d: %.c
-	@set -e; rm -f $@; \
-	$(CC) -MM $(CFLAGS) $< > $@.$$$$; \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
+farm: farm.o xerrori.o
 
-include $(DEPS)
-
-main: $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o main
-
+# target che cancella eseguibili e file oggetto
 clean:
-	rm -f $(OBJS) $(DEPS) main
+	rm -f $(EXECS) *.o
