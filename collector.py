@@ -61,7 +61,7 @@ def gestisci_connessione(conn,addr, n, s):
     data = recv_all(conn,263)
     assert len(data)==263
     somma  = struct.unpack("!l",data[:8])[0]
-    n_file = struct.unpack("!c",dqta[8:])[0]
+    n_file = struct.unpack("!c",data[8:])[0]
 		
 		# controllo se è stato mandato il messaggio di terminazione
 		if n_file == "terminazione":
