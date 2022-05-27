@@ -1,17 +1,17 @@
 #include "xerrori.h"
 
-#define nthread 4
-#define qlen 8
-#define delay 0
+#define p1 4
+#define p2 8
+#define p3 0
 
 
 /*
 Da fare:
-	gestione parametri opzionali;
-	decidere se fare le join sul server o sul masterworker
-	connessione al server dei worker e inviare i dati
-	tutta la parte successiva del produttore
-	controllare alcuni dettagli segnati
+	-gestione parametri opzionali;
+	-decidere se fare le join sul server o sul masterworker
+	-connessione al server dei worker e inviare i dati
+	-tutta la parte successiva del produttore
+	-controllare alcuni dettagli segnati
 */
 
 
@@ -35,6 +35,7 @@ Da fare:
 typedef struct {
   int *cindex;  // indice nel buffer
   char **buffer; 
+	int qlen;
 	pthread_mutex_t *cmutex;
   sem_t *sem_free_slots;
   sem_t *sem_data_items;  
@@ -48,7 +49,7 @@ void *tbody(void *arg)
   while(true) {
     xsem_wait(a->sem_data_items,__LINE__,__FILE__);
 		xpthread_mutex_lock(a->cmutex,__LINE__,__FILE__);
-    n_file = a->buffer[*(a->cindex) % qlen];
+    n_file = a->buffer[*(a->cindex) % a->qlen];
     *(a->cindex) +=1;
 		xpthread_mutex_unlock(a->cmutex,__LINE__,__FILE__);
     xsem_post(a->sem_free_slots,__LINE__,__FILE__);
@@ -93,11 +94,33 @@ int main(int argc, char *argv[]) {
 	
 	//gestione parametri opzionali
 
-
-
-
+	int idx = -1, nthread = p1, qlen = p2, delay = p3;
 	
-
+  int opt;
+  while ((opt = getopt(argc, argv, "nqt:")) != -1) {
+    switch (opt) {
+      case 'n':
+        nthread = atoi(optarg);
+				if (idx == -1) idx = optind;
+        break;
+			case 'q':
+        qlen = atoi(optarg);
+        if (idx == -1) idx = optind;
+        break;
+      case 't':
+        delay = atoi(optarg);
+        if (idx == -1) idx = optind;
+        break;
+      default: /* '?' */
+        fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t delay]\n",
+        argv[0]);
+        exit(EXIT_FAILURE);
+      }
+  }
+	if (optind >= argc) {
+    fprintf(stderr, "Expected argument after options\n");
+    exit(EXIT_FAILURE);
+  }
 	
   // threads related
   char *buffer[qlen];
@@ -111,6 +134,7 @@ int main(int argc, char *argv[]) {
   for(int i=0;i<nthread;i++) {
     // faccio partire il thread i
     a[i].buffer = buffer;
+		a[i].qlen = qlen;
 		a[i].cindex = &cindex;
 		a[i].cmutex = &cmutex;
     a[i].sem_data_items = &sem_data_items;
@@ -119,16 +143,21 @@ int main(int argc, char *argv[]) {
   }
 	
 	//produttore
-
-
-
-
-	
-
+		for (int i=1; i<idx-1; i++) {
+		char *n_file = malloc(sizeof(char)*20); //da controllare
+  	xsem_wait(&sem_free_slots,__LINE__,__FILE__);
+		buffer[pindex++ % qlen] = strdup(n_file);
+    xsem_post(&sem_data_items,__LINE__,__FILE__);
+		free(n_file);
+	}
 
 	//terminazione threads
 
-
+	for (int i=0; i<nthread; i++) {
+		xsem_wait(&sem_free_slots,__LINE__,__FILE__);
+		buffer[pindex++ % qlen] = NULL;
+    xsem_post(&sem_data_items,__LINE__,__FILE__);
+	}
 
 	//join threads ?????
 
