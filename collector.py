@@ -58,20 +58,21 @@ def gestisci_connessione(conn,addr, n, s):
     print(f"Contattato da {addr}")
     # ---- attendo un long del C da 8 bytes == 64 bit e una stringa che assumiamo
 		# sia <=255 caratteri quindi <=255 bytes in utf8
-    data = recv_all(conn,263)
-    assert len(data)==263
-    somma  = struct.unpack("!l",data[:8])[0]
-    n_file = struct.unpack("!c",data[8:])[0]
-		
+    data = recv_all(conn,2)
+    assert len(data)==2
+		l_file = struct.unpack("!s",data[:2])[0]
 		# controllo se è stato mandato il messaggio di terminazione
-		if n_file == "terminazione":
+		if l_file == 0:
 			# aspetto la terminazione degli altri threads
 			assert(n>=1)
 			for i in range(n):
 				t+i.join()
 			s.shutdown(socket.SHUT_RDWR)
-		
-		else
+		else:
+			data = recv_all(conn,8+l_file)
+    	assert len(data) == 8+l_file
+    	somma  = struct.unpack("!q",data[:8])[0]
+    	n_file = struct.unpack("!c",data[8:])[0]
     	# ---- stampo su stdout
 			print(f"{somma} {n_file}")
  

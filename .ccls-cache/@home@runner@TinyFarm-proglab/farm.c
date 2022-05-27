@@ -3,7 +3,8 @@
 #define p1 4
 #define p2 8
 #define p3 0
-
+#define HOST "127.0.0.1"
+#define PORT 65432 
 
 /*
 Da fare:
@@ -11,9 +12,16 @@ Da fare:
 	-tutta la parte successiva del produttore
 	-controllare alcuni dettagli segnati
 	-gestione segnali
+	-testare separatamente eseguibile c e server python
 */
 
-
+/*
+Potrei gestire la trasmissione server/client inviando un primo messaggio 
+che stabilisce la grandezza del nome del file, così che se la dimesione è zero 
+posso terminare il server (messaggio di terminazione), e così che so già quanti bytes dovrò aspettare di leggere.
+Quindi poi come secondo messaggio la somma e come terzo il nome del file.
+Perciò sul server dovrò aggiungere un parametro per la dimensione del nome del file
+*/
 
 
 /*
@@ -28,6 +36,24 @@ Da fare:
 
 	La gestione dei segnali sarà l'ultima cosa che farò
 */
+
+// mi serve una funzione di scrittura per trasferimento dati al server
+ssize_t writen(int fd, void *ptr, size_t n) {
+	size_t nleft;
+	ssize_t nwritten;
+	nleft = n;
+	while (nleft > 0) {
+		if ((nwritten = write(fd, ptr, nleft)) < 0) {
+			if (nleft == n) return -1;
+			else break;
+		}
+		else if (nwritten == 0) break;
+		nleft -= nwritten;
+		ptr += nwritten;
+	}
+	return (n - nleft);
+}
+
 
 
 // definisco i parametri da passare ai threads worker
@@ -48,7 +74,7 @@ void *tbody(void *arg)
   while(true) {
     xsem_wait(a->sem_data_items,__LINE__,__FILE__);
 		xpthread_mutex_lock(a->cmutex,__LINE__,__FILE__);
-    n_file = a->buffer[*(a->cindex) % a->qlen];
+    n_file = strdup(a->buffer[*(a->cindex) % a->qlen]);
     *(a->cindex) +=1;
 		xpthread_mutex_unlock(a->cmutex,__LINE__,__FILE__);
     xsem_post(a->sem_free_slots,__LINE__,__FILE__);
@@ -77,8 +103,43 @@ void *tbody(void *arg)
 		
 		//connessione al server e invio somma e n_file
 
+		int fd_socket = 0;
+		short tmp;
+		int tmp2;
+		struct sockaddr_in serv_addr;
+		if ((fd_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+			xtermina("Socket creation error", __LINE__,__FILE__);
+		}
+		//assegna indirizzo
+		serv_addr.sin_family = AF_INET;
+		serv_addr.sin_port = htons(PORT);
+		serv_addr.sin_addr.s_addr = inet_addr(HOST);
+		//apro connessione
+		if (connect(fd_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
+			xtermina("errore connessione", __LINE__, __FILE__);
 
-
+		//invio i dati
+		short dato = strlen(n_file)+1;
+		tmp = htons(dato);
+		e2 = writen(fd_socket, &tmp, sizeof(tmp));
+		if (e2 != sizeof(int)) 
+		xtermina("errore write dato", __LINE__, __FILE__);
+		char str[256];
+		sprintf(str, "%ld", somma);
+		char somma1[128];
+		char somma2[128];
+		strncpy(somma1,&str[0],127);
+		strncpy(somma1,&str[128],127);
+		tmp2 = htonl(atoi(somma1));
+		e2 = writen(fd_socket, &tmp2, sizeof(tmp2);
+		if (e2 != sizeof(int)) 
+		xtermina("errore write somma1", __LINE__, __FILE__);
+		tmp2 = htonl(atoi(somma2));
+		e2 = writen(fd_socket, &tmp2, sizeof(tmp2);
+		if (e2 != sizeof(int)) 
+		xtermina("errore write somma2", __LINE__, __FILE__);
+		
+		xclose(fd_socket, __LINE__, __FILE__);
 		
   }
   pthread_exit(NULL); 
@@ -143,18 +204,16 @@ int main(int argc, char *argv[]) {
 	
 	//produttore
 		for (int i=1; i<idx-1; i++) {
-		char *n_file = malloc(sizeof(char)*20); //da controllare
   	xsem_wait(&sem_free_slots,__LINE__,__FILE__);
-		buffer[pindex++ % qlen] = strdup(n_file);
+		buffer[pindex++ % qlen] = strdup(argv[i]);  //non ci dovrebbe essere bisogno della strdup
     xsem_post(&sem_data_items,__LINE__,__FILE__);
-		free(n_file);
 	}
 
 	//terminazione threads
 
 	for (int i=0; i<nthread; i++) {
 		xsem_wait(&sem_free_slots,__LINE__,__FILE__);
-		buffer[pindex++ % qlen] = NULL;
+		buffer[pindex++ % qlen] = NULL;   //non so se lo accetta
     xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
 
@@ -165,10 +224,29 @@ int main(int argc, char *argv[]) {
 	xpthread_mutex_destroy(&cmutex,__LINE__,__FILE__);
 
 	//terminazione server
+	//creo la socket
+	int fd_socket = 0;
+	long tmp;
+	size_t e;
+	struct sockaddr_in serv_addr;
+	if ((fd_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		xtermina("Socket creation error", __LINE__,__FILE__);
+	}
+	//assegna indirizzo
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(PORT);
+	serv_addr.sin_addr.s_addr = inet_addr(HOST);
+	//apro connessione
+	if (connect(fd_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
+		xtermina("errore connessione", __LINE__, __FILE__);
 
-	
+	//invio i dati
+	short dato = 0;
+	tmp = htons(dato);
+	e = writen(fd_socket, &tmp, sizeof(tmp));
+	if (e != sizeof(int)) 
+		xtermina("errore write", __LINE__, __FILE__);
 
-
-	
+	xclose(fd_socket, __LINE__, __FILE__);
   return 0;
 }
