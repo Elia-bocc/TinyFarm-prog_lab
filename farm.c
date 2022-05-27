@@ -7,11 +7,10 @@
 
 /*
 Da fare:
-	-gestione parametri opzionali;
-	-decidere se fare le join sul server o sul masterworker
 	-connessione al server dei worker e inviare i dati
 	-tutta la parte successiva del produttore
 	-controllare alcuni dettagli segnati
+	-gestione segnali
 */
 
 
@@ -159,11 +158,12 @@ int main(int argc, char *argv[]) {
     xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
 
-	//join threads ?????
+	//join threads e distruzione mutex
 
+	for(int i=0;i<nthread;i++)
+    xpthread_join(t[i],NULL,__LINE__,__FILE__);
+	xpthread_mutex_destroy(&cmutex,__LINE__,__FILE__);
 
-
-	
 	//terminazione server
 
 	
