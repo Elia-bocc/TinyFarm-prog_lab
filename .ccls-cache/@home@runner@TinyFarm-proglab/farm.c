@@ -37,7 +37,23 @@ Perciò sul server dovrò aggiungere un parametro per la dimensione del nome del
 	La gestione dei segnali sarà l'ultima cosa che farò
 */
 
+
+volatile sig_atomic_t c = true;
+
+//handler per il segnale SIGNIT
+
+void handler(int s) {
+	/*sigset_t mask;
+  sigfillset(&mask);*/
+  if(s==SIGINT) {
+    c = false;
+  }
+	else termina("errore segnale");
+}
+
+
 // mi serve una funzione di scrittura per trasferimento dati al server
+
 ssize_t writen(int fd, void *ptr, size_t n) {
 	size_t nleft;
 	ssize_t nwritten;
@@ -55,7 +71,6 @@ ssize_t writen(int fd, void *ptr, size_t n) {
 }
 
 
-
 // definisco i parametri da passare ai threads worker
 typedef struct {
   int *cindex;  // indice nel buffer
@@ -69,6 +84,11 @@ typedef struct {
 // funzione eseguita dai thread worker
 void *tbody(void *arg)
 {  
+	//blocco tutti i segnali ai thread consumatori per non disturbarli
+	sigset_t mask;
+	sigfillset(&mask);
+	pthread_sigmask(SIG_BLOCK,&mask,NULL);
+	
   dati *a = (dati *)arg; 
   char *n_file;  // da guardare bene di non creare problemi
   while(true) {
@@ -151,6 +171,15 @@ int main(int argc, char *argv[]) {
       printf("Uso: %s file [file ...] \n",argv[0]);
 			termina("Errore dati input");
   }
+
+	// definisce signal handler 
+  struct sigaction sa;
+  sa.sa_handler = handler;
+	// setta a "insieme pieno" sa.sa_mask che è la
+	// maschera di segnali da bloccare  
+  sigfillset(&sa.sa_mask);     
+  sa.sa_flags = SA_RESTART;     // restart system calls if interrupted
+  sigaction(SIGINT,&sa,NULL);   // handler per Control-C
 	
 	//gestione parametri opzionali
 
@@ -201,9 +230,10 @@ int main(int argc, char *argv[]) {
     a[i].sem_free_slots = &sem_free_slots;
     xpthread_create(&t[i],NULL,tbody,a+i,__LINE__,__FILE__); //da controllare
   }
-	
+
 	//produttore
 		for (int i=1; i<idx-1; i++) {
+		if (c == false) break;
   	xsem_wait(&sem_free_slots,__LINE__,__FILE__);
 		buffer[pindex++ % qlen] = strdup(argv[i]);  //non ci dovrebbe essere bisogno della strdup
     xsem_post(&sem_data_items,__LINE__,__FILE__);
