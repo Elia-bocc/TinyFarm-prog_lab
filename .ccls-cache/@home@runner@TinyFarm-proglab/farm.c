@@ -9,9 +9,7 @@
 /*
 Da fare:
 	-connessione al server dei worker e inviare i dati
-	-tutta la parte successiva del produttore
 	-controllare alcuni dettagli segnati
-	-gestione segnali
 	-testare separatamente eseguibile c e server python
 */
 
@@ -120,9 +118,9 @@ void *tbody(void *arg)
 			somma += i*num;
 		}
 		fclose(f);
-		
+		fprintf(stdout, "somma: %ld, n_file: %s", somma, n_file);
 		//connessione al server e invio somma e n_file
-
+/*
 		int fd_socket = 0;
 		short tmp;
 		int tmp2;
@@ -162,6 +160,8 @@ void *tbody(void *arg)
 		xclose(fd_socket, __LINE__, __FILE__);
 		
   }
+*/
+	}
   pthread_exit(NULL); 
 }   
 
@@ -234,6 +234,7 @@ int main(int argc, char *argv[]) {
 	//produttore
 		for (int i=1; i<idx-1; i++) {
 		if (c == false) break;
+		sleep(delay);
   	xsem_wait(&sem_free_slots,__LINE__,__FILE__);
 		buffer[pindex++ % qlen] = strdup(argv[i]);  //non ci dovrebbe essere bisogno della strdup
     xsem_post(&sem_data_items,__LINE__,__FILE__);
@@ -254,6 +255,7 @@ int main(int argc, char *argv[]) {
 	xpthread_mutex_destroy(&cmutex,__LINE__,__FILE__);
 
 	//terminazione server
+	/*
 	//creo la socket
 	int fd_socket = 0;
 	long tmp;
@@ -278,5 +280,6 @@ int main(int argc, char *argv[]) {
 		xtermina("errore write", __LINE__, __FILE__);
 
 	xclose(fd_socket, __LINE__, __FILE__);
+	*/
   return 0;
 }
