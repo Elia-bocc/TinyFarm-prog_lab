@@ -88,7 +88,7 @@ void *tbody(void *arg)
   while(true) {
     xsem_wait(a->sem_data_items,__LINE__,__FILE__);
 		xpthread_mutex_lock(a->cmutex,__LINE__,__FILE__);
-    n_file = strdup(a->buffer[*(a->cindex) % a->qlen]);
+    n_file = a->buffer[*(a->cindex) % a->qlen];
     *(a->cindex) +=1;
 		xpthread_mutex_unlock(a->cmutex,__LINE__,__FILE__);
     xsem_post(a->sem_free_slots,__LINE__,__FILE__);
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
 		if (c == false) break;
 		sleep(delay);
   	xsem_wait(&sem_free_slots,__LINE__,__FILE__);
-		buffer[pindex++ % qlen] = strdup(argv[i]);  //non ci dovrebbe essere bisogno della strdup
+		buffer[pindex++ % qlen] = argv[i];
     xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
 //puts("prima term threads");
