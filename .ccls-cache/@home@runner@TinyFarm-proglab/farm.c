@@ -1,8 +1,4 @@
 #include "xerrori.h"
-
-#define p1 4
-#define p2 8
-#define p3 0
 #define HOST "127.0.0.1"
 #define PORT 65432 
 
@@ -97,28 +93,44 @@ void *tbody(void *arg)
 		xpthread_mutex_unlock(a->cmutex,__LINE__,__FILE__);
     xsem_post(a->sem_free_slots,__LINE__,__FILE__);
 		//meccanismo di terminazione dei threads worker
-		if (n_file == NULL) break;
+		if (strcmp(n_file, "t")==0) break;
 		//apro il file
 		FILE *f = fopen(n_file, "rb");
-		termina("Errore lettura da file");
+		if(f==NULL) termina("Errore lettura da file");
 		// stabilisco il numero di long
+
+		long num;
+		long somma = 0;
+		size_t e2;
+		int i = 0;
+		while(true) {
+			e2 = fread(&num, sizeof(long), 1, f);
+			if (e2==0) break;
+			somma += i*num;
+			i += 1;
+		}
+		
+		/*
 		int e = fseek(f, 0, SEEK_END);
 		if (e!=0) termina("errore fseek");
 		long t = ftell(f);
 		if (t<0) termina("errore ftell");
 		int n_long = t/sizeof(long);
+		printf("\n%d", n_long);
 		rewind(f);
 		//calcolo somma da file
 		long somma = 0;
 		size_t e2;
-		long num;
+		long *num;
+		num = malloc(n_long*sizeof(num));
+		e2 = fread(num, sizeof(long), n_long, f);  //non so se va bene
+		if (e2 != n_long) termina("errore lettura");
 		for (int i=0; i<n_long; i++) {
-			e2 = fread(&num, sizeof(long), 1, f);  //non so se va bene
-			if (e2 == 0) break;
-			somma += i*num;
-		}
+			printf("\n%ld", num[i]);
+			somma += i*num[i];
+		}*/
 		fclose(f);
-		fprintf(stdout, "somma: %ld, n_file: %s", somma, n_file);
+		fprintf(stdout, "\nsomma: %ld, n_file: %s", somma, n_file);
 		//connessione al server e invio somma e n_file
 /*
 		int fd_socket = 0;
@@ -183,34 +195,29 @@ int main(int argc, char *argv[]) {
 	
 	//gestione parametri opzionali
 
-	int idx = -1, nthread = p1, qlen = p2, delay = p3;
-	
-  int opt;
-  while ((opt = getopt(argc, argv, "nqt:")) != -1) {
+	int nthread = 4, qlen = 8, delay = 0, opt;
+  while ((opt = getopt(argc, argv, "n:q:t:")) != -1) {
     switch (opt) {
       case 'n':
         nthread = atoi(optarg);
-				if (idx == -1) idx = optind;
         break;
 			case 'q':
         qlen = atoi(optarg);
-        if (idx == -1) idx = optind;
         break;
       case 't':
         delay = atoi(optarg);
-        if (idx == -1) idx = optind;
         break;
-      default: /* '?' */
+      default:
         fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t delay]\n",
         argv[0]);
         exit(EXIT_FAILURE);
       }
   }
-	if (optind >= argc) {
+	if (optind >= argc) { //anche se non ce n'è bisogno
     fprintf(stderr, "Expected argument after options\n");
     exit(EXIT_FAILURE);
   }
-	
+
   // threads related
   char *buffer[qlen];
   int pindex=0,cindex=0;
@@ -232,22 +239,22 @@ int main(int argc, char *argv[]) {
   }
 
 	//produttore
-		for (int i=1; i<idx-1; i++) {
+		for (int i=optind; i<argc; i++) {
 		if (c == false) break;
 		sleep(delay);
   	xsem_wait(&sem_free_slots,__LINE__,__FILE__);
 		buffer[pindex++ % qlen] = strdup(argv[i]);  //non ci dovrebbe essere bisogno della strdup
     xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
-
+//puts("prima term threads");
 	//terminazione threads
 
 	for (int i=0; i<nthread; i++) {
 		xsem_wait(&sem_free_slots,__LINE__,__FILE__);
-		buffer[pindex++ % qlen] = NULL;   //non so se lo accetta
+		buffer[pindex++ % qlen] = "t";
     xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
-
+	
 	//join threads e distruzione mutex
 
 	for(int i=0;i<nthread;i++)
