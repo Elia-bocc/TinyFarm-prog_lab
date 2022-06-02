@@ -98,7 +98,7 @@ void *tbody(void *arg)
 		FILE *f = fopen(n_file, "rb");
 		if(f==NULL) termina("Errore lettura da file");
 		// stabilisco il numero di long
-
+/*
 		long num;
 		long somma = 0;
 		size_t e2;
@@ -109,26 +109,23 @@ void *tbody(void *arg)
 			somma += i*num;
 			i += 1;
 		}
-		
-		/*
+		*/
 		int e = fseek(f, 0, SEEK_END);
 		if (e!=0) termina("errore fseek");
 		long t = ftell(f);
 		if (t<0) termina("errore ftell");
 		int n_long = t/sizeof(long);
-		printf("\n%d", n_long);
 		rewind(f);
 		//calcolo somma da file
 		long somma = 0;
 		size_t e2;
-		long *num;
-		num = malloc(n_long*sizeof(num));
+		long *num = malloc(n_long*sizeof(long *));
 		e2 = fread(num, sizeof(long), n_long, f);  //non so se va bene
 		if (e2 != n_long) termina("errore lettura");
 		for (int i=0; i<n_long; i++) {
-			printf("\n%ld", num[i]);
 			somma += i*num[i];
-		}*/
+		}
+		free(num);
 		fclose(f);
 		fprintf(stdout, "\nsomma: %ld, n_file: %s", somma, n_file);
 		//connessione al server e invio somma e n_file
