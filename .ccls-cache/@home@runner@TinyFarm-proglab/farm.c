@@ -32,19 +32,30 @@ Perciò sul server dovrò aggiungere un parametro per la dimensione del nome del
 */
 
 
-volatile sig_atomic_t c = true;
+//gestore per il segnale SIGNIT
 
-//handler per il segnale SIGNIT
+typedef struct {
+  volatile sig_atomic_t *c;
+} dgest;
 
-void handler(int s) {
-	/*sigset_t mask;
-  sigfillset(&mask);*/
-  if(s==SIGINT) {
-    c = false;
+void *tgestore(void *v) {
+	dgest *a = (dgest *)v;
+  sigset_t mask;
+  sigemptyset(&mask);
+	sigaddset(&mask, SIGINT);
+  int s;
+  while(true) {
+    int e = sigwait(&mask,&s);
+		sleep(6);
+    if(e!=0) perror("Errore sigwait");
+		if (s == SIGINT) {
+			a->c = false;
+		}
+		else xtermina("errore ricezione segnale", __LINE__,__FILE__);
+    
   }
-	else termina("errore segnale");
+  return NULL;
 }
-
 
 // mi serve una funzione di scrittura per trasferimento dati al server
 
@@ -78,11 +89,6 @@ typedef struct {
 // funzione eseguita dai thread worker
 void *tbody(void *arg)
 {  
-	//blocco tutti i segnali ai thread consumatori per non disturbarli
-	sigset_t mask;
-	sigfillset(&mask);
-	pthread_sigmask(SIG_BLOCK,&mask,NULL);
-	
   dati *a = (dati *)arg; 
   char *n_file;  // da guardare bene di non creare problemi
   while(true) {
@@ -181,14 +187,13 @@ int main(int argc, char *argv[]) {
 			termina("Errore dati input");
   }
 
-	// definisce signal handler 
-  struct sigaction sa;
-  sa.sa_handler = handler;
-	// setta a "insieme pieno" sa.sa_mask che è la
-	// maschera di segnali da bloccare  
-  sigfillset(&sa.sa_mask);     
-  sa.sa_flags = SA_RESTART;     // restart system calls if interrupted
-  sigaction(SIGINT,&sa,NULL);   // handler per Control-C
+	// definisce la maschera di tutti i threads compreso quello principale
+	
+	sigset_t mask;
+  sigfillset(&mask);  // insieme di tutti i segnali
+  sigdelset(&mask,SIGQUIT); // elimino sigquit
+  pthread_sigmask(SIG_BLOCK,&mask,NULL); // blocco tutto tranne sigquit
+	
 	
 	//gestione parametri opzionali
 
@@ -219,7 +224,7 @@ int main(int argc, char *argv[]) {
   char *buffer[qlen];
   int pindex=0,cindex=0;
 	pthread_mutex_t cmutex = PTHREAD_MUTEX_INITIALIZER;
-  pthread_t t[nthread];
+  pthread_t t[nthread+1];
   dati a[nthread];
   sem_t sem_free_slots, sem_data_items;
   xsem_init(&sem_free_slots,0,qlen,__LINE__,__FILE__);
@@ -235,6 +240,14 @@ int main(int argc, char *argv[]) {
     xpthread_create(&t[i],NULL,tbody,a+i,__LINE__,__FILE__); //da controllare
   }
 
+	//lancio il thread gestore
+	
+	volatile sig_atomic_t c = true;
+	dgest arg;
+	arg.c = &c;
+	xpthread_create(&t[nthread],NULL,tgestore, &arg,__LINE__, __FILE__);
+
+	
 	//produttore
 		for (int i=optind; i<argc; i++) {
 		if (c == false) break;

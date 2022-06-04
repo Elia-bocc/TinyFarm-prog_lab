@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # problemi/considerazioni:
 # per far si che la stampa sia coerente
 # non dovrebbe essere necessario usare mutex perchè in python
@@ -17,7 +18,7 @@
 # 3 vedere se c'è un modo per non atendere tutti e 263 i bytes alla recv_all
 # nella funzione gestisci connessione
 
-#! /usr/bin/env python3
+
 # server che stampa su stdout la somma dei long del file e il nome del file
 # gestisce più clienti contemporaneamente usando i thread
 # Parte premendo il tasto Run 
