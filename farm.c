@@ -237,7 +237,7 @@ int main(int argc, char *argv[]) {
 		a[i].cmutex = &cmutex;
     a[i].sem_data_items = &sem_data_items;
     a[i].sem_free_slots = &sem_free_slots;
-    xpthread_create(&t[i],NULL,tbody,a+i,__LINE__,__FILE__); //da controllare
+    xpthread_create(&t[i],NULL,tbody,a+i,__LINE__,__FILE__); //da controllare potrebe essere il problema della memoria
   }
 
 	//lancio il thread gestore
