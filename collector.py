@@ -34,14 +34,17 @@ def main(host=HOST,port=PORT):
   # creiamo il server socket
   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: 
     s.bind((host, port))
-    s.listen()
+		s.listen()
 		n = 0
-    while True:
+		t = []
+		while True:
       # mi metto in attesa di una connessione
-      conn, addr = s.accept()
-      # lavoro con la connessione appena ricevuta
-      t+n = threading.Thread(target=gestisci_connessione, args=(conn,addr,n,s))
-      t+n.start()
+			print(f"In attesa di un client")
+			conn, addr = s.accept()
+			# lavoro con la connessione appena ricevuta
+			#a = "thread"+n
+			t.append(threading.Thread(target=gestisci_connessione, args=(conn,addr,n+1,t,s)))
+			t[n].start()
 			n += 1
 
 
@@ -49,7 +52,7 @@ def main(host=HOST,port=PORT):
 # con un client
 # prende come parametri la socket conn, l indirizzo addr, il numero del thread n
 # e la socket del server s
-def gestisci_connessione(conn,addr, n, s): 
+def gestisci_connessione(conn,addr, n, t, s): 
   # in questo caso potrei usare direttamente conn
   # e l'uso di with serve solo a garantire che
   # conn venga chiusa all'uscita del blocco
@@ -57,25 +60,35 @@ def gestisci_connessione(conn,addr, n, s):
   # inzializzazione e il clean-up finale
   with conn:  
     print(f"Contattato da {addr}")
-    # ---- attendo un long del C da 8 bytes == 64 bit e una stringa che assumiamo
-		# sia <=255 caratteri quindi <=255 bytes in utf8
-    data = recv_all(conn,2)
-    assert len(data)==2
-		l_file = struct.unpack("!s",data[:2])[0]
+    # ---- ricevo uno short (dimensione long), che potrebbe essere
+		# il messaggio di terminazione
+		data = recv_all(conn,4)
+		assert len(data)==4
+		l_long = struct.unpack("!i",data)[0]
 		# controllo se è stato mandato il messaggio di terminazione
-		if l_file == 0:
+		if l_long == 0:
 			# aspetto la terminazione degli altri threads
 			assert(n>=1)
 			for i in range(n):
-				t+i.join()
+				t[i].join()
 			s.shutdown(socket.SHUT_RDWR)
+			#s.close()
 		else:
-			data = recv_all(conn,8+l_file)
-    	assert len(data) == 8+l_file
-    	somma  = struct.unpack("!q",data[:8])[0]
-    	n_file = struct.unpack("!c",data[8:])[0]
+			
+			# se il server non termina ricevo la dimensione del nome del
+			#file, il long e il nome del file
+			data = recv_all(conn,4)
+			assert len(data)==4
+			l_file = struct.unpack("!i",data)[0]
+			data = recv_all(conn,l_long)
+			assert len(data) == l_long
+			somma = data.decode()
+			data = recv_all(conn,l_file)
+			assert len(data) == l_file
+			n_file = data.decode()
+				
     	# ---- stampo su stdout
-			print(f"{somma} {n_file}")
+			print(f"Somma: {somma} File: {n_file}")
  
 
 

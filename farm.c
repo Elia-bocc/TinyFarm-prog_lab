@@ -133,12 +133,11 @@ void *tbody(void *arg)
 		}
 		free(num);
 		fclose(f);
-		fprintf(stdout, "\nsomma: %ld, n_file: %s", somma, n_file);
+		//fprintf(stdout, "\nsomma: %ld, n_file: %s", somma, n_file);
 		//connessione al server e invio somma e n_file
-/*
+
 		int fd_socket = 0;
-		short tmp;
-		int tmp2;
+		int tmp;
 		struct sockaddr_in serv_addr;
 		if ((fd_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			xtermina("Socket creation error", __LINE__,__FILE__);
@@ -152,30 +151,29 @@ void *tbody(void *arg)
 			xtermina("errore connessione", __LINE__, __FILE__);
 
 		//invio i dati
-		short dato = strlen(n_file)+1;
-		tmp = htons(dato);
+		//trasformo la somma in una stringa, calcolo la sua dimensione e la invio
+		char sommac[256];
+		sprintf(sommac, "%ld", somma);
+		int l_sommac = strlen(sommac); //+1 per lo /0
+		tmp = htonl(l_sommac);
+		e2 = writen(fd_socket, &tmp, sizeof(tmp));
+		if (e2 != sizeof(int))
+			xtermina("errore write l_sommac", __LINE__, __FILE__);
+		//calcolo la dimensione del nome del file e la invio
+		int l_file = strlen(n_file);
+		tmp = htonl(l_file);
 		e2 = writen(fd_socket, &tmp, sizeof(tmp));
 		if (e2 != sizeof(int)) 
-		xtermina("errore write dato", __LINE__, __FILE__);
-		char str[256];
-		sprintf(str, "%ld", somma);
-		char somma1[128];
-		char somma2[128];
-		strncpy(somma1,&str[0],127);
-		strncpy(somma1,&str[128],127);
-		tmp2 = htonl(atoi(somma1));
-		e2 = writen(fd_socket, &tmp2, sizeof(tmp2);
-		if (e2 != sizeof(int)) 
-		xtermina("errore write somma1", __LINE__, __FILE__);
-		tmp2 = htonl(atoi(somma2));
-		e2 = writen(fd_socket, &tmp2, sizeof(tmp2);
-		if (e2 != sizeof(int)) 
-		xtermina("errore write somma2", __LINE__, __FILE__);
+			xtermina("errore write l_file", __LINE__, __FILE__);
+		e2 = writen(fd_socket, sommac, sizeof(char)*l_sommac);
+		if (e2 != l_sommac) 
+			xtermina("errore write l_sommac", __LINE__, __FILE__);
+		e2 = writen(fd_socket, n_file, sizeof(char)*l_file);
+		if (e2 != l_file)
+			xtermina("errore write n_file", __LINE__, __FILE__);
 		
 		xclose(fd_socket, __LINE__, __FILE__);
-		
-  }
-*/
+
 	}
   pthread_exit(NULL); 
 }   
@@ -272,10 +270,10 @@ int main(int argc, char *argv[]) {
 	xpthread_mutex_destroy(&cmutex,__LINE__,__FILE__);
 
 	//terminazione server
-	/*
+	
 	//creo la socket
 	int fd_socket = 0;
-	long tmp;
+	int tmp;
 	size_t e;
 	struct sockaddr_in serv_addr;
 	if ((fd_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -290,13 +288,13 @@ int main(int argc, char *argv[]) {
 		xtermina("errore connessione", __LINE__, __FILE__);
 
 	//invio i dati
-	short dato = 0;
-	tmp = htons(dato);
+	int dato = 0;
+	tmp = htonl(dato);
 	e = writen(fd_socket, &tmp, sizeof(tmp));
-	if (e != sizeof(int)) 
-		xtermina("errore write", __LINE__, __FILE__);
+	if (e != sizeof(int))
+		xtermina("errore write term", __LINE__, __FILE__);
 
 	xclose(fd_socket, __LINE__, __FILE__);
-	*/
+	
   return 0;
 }
