@@ -22,7 +22,8 @@ def main(host=HOST,port=PORT):
 				n += 1
 				# lavoro con la connessione appena ricevuta
 				# passo come argomenti la connessione l indirizzo e il pid per la terminazione
-				t.append(threading.Thread(target=gestisci_connessione, args=(conn,addr, os.getpid())))
+				# l'identificativo del thread viene memorizzato in una lista per poi poter fare la join
+				t.append(threading.Thread(target=gestisci_connessione, args=(conn,addr)))
 				t[n].start()
 		except  KeyboardInterrupt:
 			pass
@@ -37,7 +38,7 @@ def main(host=HOST,port=PORT):
 # con un client
 # prende come parametri la socket conn, l indirizzo addr,
 # il pid del thread principale
-def gestisci_connessione(conn,addr, pid): 
+def gestisci_connessione(conn,addr): 
   # in questo caso potrei usare direttamente conn
   # e l'uso di with serve solo a garantire che
   # conn venga chiusa all'uscita del blocco
@@ -45,17 +46,17 @@ def gestisci_connessione(conn,addr, pid):
   # inzializzazione e il clean-up finale
 	with conn: 
 		print(f"Contattato da {addr}")
-		# ---- ricevo uno short (dimensione del long)
+		# ricevo uno short (dimensione del long)
 		data = recv_all(conn,2)
 		assert len(data)==2
 		l_long = struct.unpack("!h",data)[0]
 		# controllo se è stato mandato il messaggio di terminazione
 		if l_long == 0:
 			# invio SIGINT per terminare il server
-			os.kill(pid, signal.SIGINT)
+			os.kill(os.getpid(), signal.SIGINT)
 		else:
-			# se il messaggio di term. non arriva ricevo la dimensione del nome del
-			#file, il long e il nome del file
+			# se il messaggio di term. non arriva ricevo la dimensione del nome 
+			#del file, il long e il nome del file
 			data = recv_all(conn,2)
 			assert len(data)==2
 			l_file = struct.unpack("!h",data)[0]
