@@ -14,3 +14,7 @@ farm: farm.o xerrori.o
 # target che cancella eseguibili e file oggetto
 clean:
 	rm -f $(EXECS) *.o
+
+# target che crea l'archivio dei sorgenti
+zip:
+	zip TinyFarm.zip Makefile *.c *.h *.py *.md

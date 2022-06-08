@@ -3,56 +3,37 @@
 #define PORT 65432 
 
 /*
-Da fare:
-	-connessione al server dei worker e inviare i dati
-	-controllare alcuni dettagli segnati
-	-testare separatamente eseguibile c e server python
+1) chiedere se va sistemata la memoria
+3) pensare se usare i segnali o la variabile globale per term server
+5) La dimensione dei file in input non è limitata ad un valore specifico. Si supponga che la lunghezza del nome dei file sia non superiore a 255 caratteri.
+6) readme
+7) ultima parte delle istruzioni
 */
 
-/*
-Potrei gestire la trasmissione server/client inviando un primo messaggio 
-che stabilisce la grandezza del nome del file, così che se la dimesione è zero 
-posso terminare il server (messaggio di terminazione), e così che so già quanti bytes dovrò aspettare di leggere.
-Quindi poi come secondo messaggio la somma e come terzo il nome del file.
-Perciò sul server dovrò aggiungere un parametro per la dimensione del nome del file
-*/
-
-
-/*
-	il thread principale lancia n threads e successivamente gli dà in pasto i nomi dei
-	file ricevuti sulla linea di comando attraverso un buffer prod/cons; alla fine 
-	manda un messaggio di terminazione al server e successivamente attende la terminazione
-	dei threads.
-	I threads lanciati dal principale prendono il nome del file dal buffer prod/cons
-	e calcolano una somma attraverso una formula, che poi verrà mandata al server 
-	insieme al nome del file per essere stampata; saranno necessari opportuni
-	metodi di sincronizzazione
-
-	La gestione dei segnali sarà l'ultima cosa che farò
-*/
-
-
-//gestore per il segnale SIGNIT
+//dati per il gestore seganli
 
 typedef struct {
   volatile sig_atomic_t *c;
 } dgest;
+
+//gestore per il segnale SIGNIT
 
 void *tgestore(void *v) {
 	dgest *a = (dgest *)v;
   sigset_t mask;
   sigemptyset(&mask);
 	sigaddset(&mask, SIGINT);
+	sigaddset(&mask, SIGUSR2);
   int s;
   while(true) {
     int e = sigwait(&mask,&s);
-		sleep(6);
     if(e!=0) perror("Errore sigwait");
 		if (s == SIGINT) {
 			a->c = false;
 		}
-		else xtermina("errore ricezione segnale", __LINE__,__FILE__);
-    
+		else if (s==SIGUSR2) {
+			pthread_exit(NULL);
+		}
   }
   return NULL;
 }
@@ -78,7 +59,7 @@ ssize_t writen(int fd, void *ptr, size_t n) {
 
 // definisco i parametri da passare ai threads worker
 typedef struct {
-  int *cindex;  // indice nel buffer
+  int *cindex;
   char **buffer; 
 	int qlen;
 	pthread_mutex_t *cmutex;
@@ -87,11 +68,11 @@ typedef struct {
 } dati;
 
 // funzione eseguita dai thread worker
-void *tbody(void *arg)
-{  
-  dati *a = (dati *)arg; 
+void *tbody(void *arg) {
+  dati *a = (dati *)arg;
   char *n_file;  // da guardare bene di non creare problemi
   while(true) {
+		//leggo il dato da elaborare dal buffer prod/cons
     xsem_wait(a->sem_data_items,__LINE__,__FILE__);
 		xpthread_mutex_lock(a->cmutex,__LINE__,__FILE__);
     n_file = a->buffer[*(a->cindex) % a->qlen];
@@ -104,38 +85,27 @@ void *tbody(void *arg)
 		FILE *f = fopen(n_file, "rb");
 		if(f==NULL) termina("Errore lettura da file");
 		// stabilisco il numero di long
-/*
-		long num;
-		long somma = 0;
-		size_t e2;
-		int i = 0;
-		while(true) {
-			e2 = fread(&num, sizeof(long), 1, f);
-			if (e2==0) break;
-			somma += i*num;
-			i += 1;
-		}
-		*/
 		int e = fseek(f, 0, SEEK_END);
 		if (e!=0) termina("errore fseek");
 		long t = ftell(f);
 		if (t<0) termina("errore ftell");
 		int n_long = t/sizeof(long);
 		rewind(f);
-		//calcolo somma da file
+		//leggo i long dal file
 		long somma = 0;
 		size_t e2;
 		long *num = malloc(n_long*sizeof(long *));
-		e2 = fread(num, sizeof(long), n_long, f);  //non so se va bene
+		e2 = fread(num, sizeof(long), n_long, f);
 		if (e2 != n_long) termina("errore lettura");
+		//calcolo somma da file
 		for (int i=0; i<n_long; i++) {
 			somma += i*num[i];
 		}
+		//libero la memoria occupata
 		free(num);
 		fclose(f);
-		//fprintf(stdout, "\nsomma: %ld, n_file: %s", somma, n_file);
-		//connessione al server e invio somma e n_file
 
+		//connessione al server e invio somma e n_file
 		int fd_socket = 0;
 		int tmp;
 		struct sockaddr_in serv_addr;
@@ -151,10 +121,10 @@ void *tbody(void *arg)
 			xtermina("errore connessione", __LINE__, __FILE__);
 
 		//invio i dati
-		//trasformo la somma in una stringa, calcolo la sua dimensione e la invio
+		//ottengo la stringa della somma, calcolo la sua dimensione e la invio
 		char sommac[256];
 		sprintf(sommac, "%ld", somma);
-		int l_sommac = strlen(sommac); //+1 per lo /0
+		int l_sommac = strlen(sommac);
 		tmp = htonl(l_sommac);
 		e2 = writen(fd_socket, &tmp, sizeof(tmp));
 		if (e2 != sizeof(int))
@@ -165,18 +135,20 @@ void *tbody(void *arg)
 		e2 = writen(fd_socket, &tmp, sizeof(tmp));
 		if (e2 != sizeof(int)) 
 			xtermina("errore write l_file", __LINE__, __FILE__);
+		//invio la stringa della somma
 		e2 = writen(fd_socket, sommac, sizeof(char)*l_sommac);
 		if (e2 != l_sommac) 
 			xtermina("errore write l_sommac", __LINE__, __FILE__);
+		//invio il nome del file
 		e2 = writen(fd_socket, n_file, sizeof(char)*l_file);
 		if (e2 != l_file)
 			xtermina("errore write n_file", __LINE__, __FILE__);
-		
+		//chiudo il file descriptor della socket
 		xclose(fd_socket, __LINE__, __FILE__);
-
 	}
   pthread_exit(NULL); 
 }   
+
 
 int main(int argc, char *argv[]) {
   // controlla numero argomenti
@@ -185,13 +157,13 @@ int main(int argc, char *argv[]) {
 			termina("Errore dati input");
   }
 
-	// definisce la maschera di tutti i threads compreso quello principale
+	// definisco la maschera di tutti i threads compreso quello principale
+	//e blocco tutti i segnali meno che sigquit
 	
 	sigset_t mask;
-  sigfillset(&mask);  // insieme di tutti i segnali
-  sigdelset(&mask,SIGQUIT); // elimino sigquit
-  pthread_sigmask(SIG_BLOCK,&mask,NULL); // blocco tutto tranne sigquit
-	
+  sigfillset(&mask);
+  sigdelset(&mask,SIGQUIT);
+  pthread_sigmask(SIG_BLOCK,&mask,NULL);
 	
 	//gestione parametri opzionali
 
@@ -213,7 +185,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
       }
   }
-	if (optind >= argc) { //anche se non ce n'è bisogno
+	if (optind >= argc) {
     fprintf(stderr, "Expected argument after options\n");
     exit(EXIT_FAILURE);
   }
@@ -227,6 +199,7 @@ int main(int argc, char *argv[]) {
   sem_t sem_free_slots, sem_data_items;
   xsem_init(&sem_free_slots,0,qlen,__LINE__,__FILE__);
   xsem_init(&sem_data_items,0,0,__LINE__,__FILE__);
+
   for(int i=0;i<nthread;i++) {
     // faccio partire il thread i
     a[i].buffer = buffer;
@@ -235,11 +208,10 @@ int main(int argc, char *argv[]) {
 		a[i].cmutex = &cmutex;
     a[i].sem_data_items = &sem_data_items;
     a[i].sem_free_slots = &sem_free_slots;
-    xpthread_create(&t[i],NULL,tbody,a+i,__LINE__,__FILE__); //da controllare potrebe essere il problema della memoria
+    xpthread_create(&t[i],NULL,tbody,a+i,__LINE__,__FILE__);
   }
 
 	//lancio il thread gestore
-	
 	volatile sig_atomic_t c = true;
 	dgest arg;
 	arg.c = &c;
@@ -247,14 +219,19 @@ int main(int argc, char *argv[]) {
 
 	
 	//produttore
-		for (int i=optind; i<argc; i++) {
+	for (int i=optind; i<argc; i++) {
+		//messaggio di terminazione del master
 		if (c == false) break;
-		sleep(delay);
-  	xsem_wait(&sem_free_slots,__LINE__,__FILE__);
+		usleep(delay);
+		xsem_wait(&sem_free_slots,__LINE__,__FILE__);
 		buffer[pindex++ % qlen] = argv[i];
-    xsem_post(&sem_data_items,__LINE__,__FILE__);
+		xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
-//puts("prima term threads");
+
+	//terminazione gestore
+
+	kill(getpid(), SIGUSR2);
+	
 	//terminazione threads
 
 	for (int i=0; i<nthread; i++) {
@@ -265,12 +242,11 @@ int main(int argc, char *argv[]) {
 	
 	//join threads e distruzione mutex
 
-	for(int i=0;i<nthread;i++)
+	for(int i=0;i<=nthread;i++)
     xpthread_join(t[i],NULL,__LINE__,__FILE__);
 	xpthread_mutex_destroy(&cmutex,__LINE__,__FILE__);
 
 	//terminazione server
-	
 	//creo la socket
 	int fd_socket = 0;
 	int tmp;

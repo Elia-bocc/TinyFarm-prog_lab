@@ -16,7 +16,8 @@
 #include <sys/stat.h>        /* For mode constants */
 #include <fcntl.h>           /* For O_* constants */
 #include <arpa/inet.h> 
-#include <sys/socket.h> 
+#include <sys/socket.h>
+#include <signal.h>
 
 
 // termina programma
