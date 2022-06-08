@@ -3,11 +3,8 @@
 #define PORT 65432 
 
 /*
-1) chiedere se va sistemata la memoria
-3) pensare se usare i segnali o la variabile globale per term server
 5) La dimensione dei file in input non è limitata ad un valore specifico. Si supponga che la lunghezza del nome dei file sia non superiore a 255 caratteri.
 6) readme
-7) ultima parte delle istruzioni
 */
 
 //dati per il gestore seganli
@@ -70,7 +67,7 @@ typedef struct {
 // funzione eseguita dai thread worker
 void *tbody(void *arg) {
   dati *a = (dati *)arg;
-  char *n_file;  // da guardare bene di non creare problemi
+  char *n_file;
   while(true) {
 		//leggo il dato da elaborare dal buffer prod/cons
     xsem_wait(a->sem_data_items,__LINE__,__FILE__);
@@ -83,12 +80,12 @@ void *tbody(void *arg) {
 		if (strcmp(n_file, "t")==0) break;
 		//apro il file
 		FILE *f = fopen(n_file, "rb");
-		if(f==NULL) termina("Errore lettura da file");
+		if(f==NULL) xtermina("Errore lettura da file",__LINE__,__FILE__);
 		// stabilisco il numero di long
 		int e = fseek(f, 0, SEEK_END);
-		if (e!=0) termina("errore fseek");
+		if (e!=0) xtermina("Errore fseek",__LINE__,__FILE__);
 		long t = ftell(f);
-		if (t<0) termina("errore ftell");
+		if (t<0) xtermina("Errore ftell",__LINE__,__FILE__);
 		int n_long = t/sizeof(long);
 		rewind(f);
 		//leggo i long dal file
@@ -96,7 +93,7 @@ void *tbody(void *arg) {
 		size_t e2;
 		long *num = malloc(n_long*sizeof(long *));
 		e2 = fread(num, sizeof(long), n_long, f);
-		if (e2 != n_long) termina("errore lettura");
+		if (e2 != n_long) xtermina("Errore lettura",__LINE__,__FILE__);
 		//calcolo somma da file
 		for (int i=0; i<n_long; i++) {
 			somma += i*num[i];
@@ -107,7 +104,7 @@ void *tbody(void *arg) {
 
 		//connessione al server e invio somma e n_file
 		int fd_socket = 0;
-		int tmp;
+		short tmp;
 		struct sockaddr_in serv_addr;
 		if ((fd_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			xtermina("Socket creation error", __LINE__,__FILE__);
@@ -118,31 +115,31 @@ void *tbody(void *arg) {
 		serv_addr.sin_addr.s_addr = inet_addr(HOST);
 		//apro connessione
 		if (connect(fd_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
-			xtermina("errore connessione", __LINE__, __FILE__);
+			xtermina("Errore connessione", __LINE__, __FILE__);
 
 		//invio i dati
 		//ottengo la stringa della somma, calcolo la sua dimensione e la invio
 		char sommac[256];
 		sprintf(sommac, "%ld", somma);
-		int l_sommac = strlen(sommac);
-		tmp = htonl(l_sommac);
+		short l_sommac = strlen(sommac);
+		tmp = htons(l_sommac);
 		e2 = writen(fd_socket, &tmp, sizeof(tmp));
-		if (e2 != sizeof(int))
-			xtermina("errore write l_sommac", __LINE__, __FILE__);
+		if (e2 != sizeof(short))
+			xtermina("Errore write l_sommac", __LINE__, __FILE__);
 		//calcolo la dimensione del nome del file e la invio
-		int l_file = strlen(n_file);
-		tmp = htonl(l_file);
+		short l_file = strlen(n_file);
+		tmp = htons(l_file);
 		e2 = writen(fd_socket, &tmp, sizeof(tmp));
-		if (e2 != sizeof(int)) 
-			xtermina("errore write l_file", __LINE__, __FILE__);
+		if (e2 != sizeof(short)) 
+			xtermina("Errore write l_file", __LINE__, __FILE__);
 		//invio la stringa della somma
 		e2 = writen(fd_socket, sommac, sizeof(char)*l_sommac);
 		if (e2 != l_sommac) 
-			xtermina("errore write l_sommac", __LINE__, __FILE__);
+			xtermina("Errore write l_sommac", __LINE__, __FILE__);
 		//invio il nome del file
 		e2 = writen(fd_socket, n_file, sizeof(char)*l_file);
 		if (e2 != l_file)
-			xtermina("errore write n_file", __LINE__, __FILE__);
+			xtermina("Errore write n_file", __LINE__, __FILE__);
 		//chiudo il file descriptor della socket
 		xclose(fd_socket, __LINE__, __FILE__);
 	}
@@ -153,8 +150,8 @@ void *tbody(void *arg) {
 int main(int argc, char *argv[]) {
   // controlla numero argomenti
   if(argc<2) {
-      printf("Uso: %s file [file ...] \n",argv[0]);
-			termina("Errore dati input");
+    printf("Uso: %s file [file ...] \n",argv[0]);
+		xtermina("Errore dati input",__LINE__,__FILE__);
   }
 
 	// definisco la maschera di tutti i threads compreso quello principale
@@ -249,7 +246,7 @@ int main(int argc, char *argv[]) {
 	//terminazione server
 	//creo la socket
 	int fd_socket = 0;
-	int tmp;
+	short tmp;
 	size_t e;
 	struct sockaddr_in serv_addr;
 	if ((fd_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -261,14 +258,14 @@ int main(int argc, char *argv[]) {
 	serv_addr.sin_addr.s_addr = inet_addr(HOST);
 	//apro connessione
 	if (connect(fd_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
-		xtermina("errore connessione", __LINE__, __FILE__);
+		xtermina("Errore connessione", __LINE__, __FILE__);
 
 	//invio i dati
-	int dato = 0;
-	tmp = htonl(dato);
+	short dato = 0;
+	tmp = htons(dato);
 	e = writen(fd_socket, &tmp, sizeof(tmp));
-	if (e != sizeof(int))
-		xtermina("errore write term", __LINE__, __FILE__);
+	if (e != sizeof(short))
+		xtermina("Errore write", __LINE__, __FILE__);
 
 	xclose(fd_socket, __LINE__, __FILE__);
 	
