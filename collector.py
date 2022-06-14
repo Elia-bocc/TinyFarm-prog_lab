@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+"""
 import sys, struct, socket, threading, signal, os
 
 # host e porta di default
@@ -153,7 +154,7 @@ def gestisci_connessione(conn,addr):
     	# stampo su stdout
 			print(f"{somma} {n_file}")
  
-"""
+
 # riceve esattamente n byte e li restituisce in un array di byte
 def recv_all(conn,n):
 	chunks = b''

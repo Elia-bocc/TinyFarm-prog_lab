@@ -226,6 +226,8 @@ int main(int argc, char *argv[]) {
 		xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
 
+
+	
 	//terminazione gestore
 
 	kill(getpid(), SIGUSR2);
