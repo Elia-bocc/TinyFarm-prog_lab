@@ -2,10 +2,11 @@
 #define HOST "127.0.0.1"
 #define PORT 65432 
 
-/*
-5) La dimensione dei file in input non è limitata ad un valore specifico. Si supponga che la lunghezza del nome dei file sia non superiore a 255 caratteri.
-6) readme
-*/
+//mettere gli assert
+//levare stampe dal collector
+//provare a mandare null come messaggio di terminazione
+//strtol
+//sem unlink
 
 //dati per il gestore seganli
 
@@ -26,7 +27,7 @@ void *tgestore(void *v) {
     int e = sigwait(&mask,&s);
     if(e!=0) perror("Errore sigwait");
 		if (s == SIGINT) {
-			a->c = false;
+			*(a->c) = false;
 		}
 		else if (s==SIGUSR2) {
 			pthread_exit(NULL);
@@ -77,7 +78,7 @@ void *tbody(void *arg) {
 		xpthread_mutex_unlock(a->cmutex,__LINE__,__FILE__);
     xsem_post(a->sem_free_slots,__LINE__,__FILE__);
 		//meccanismo di terminazione dei threads worker
-		if (strcmp(n_file, "t")==0) break;
+		if (n_file == NULL) break;
 		//apro il file
 		FILE *f = fopen(n_file, "rb");
 		if(f==NULL) xtermina("Errore lettura da file",__LINE__,__FILE__);
@@ -100,7 +101,7 @@ void *tbody(void *arg) {
 		}
 		//libero la memoria occupata
 		free(num);
-		fclose(f);
+		if(fclose(f) != 0) xtermina("Errore chiusura file",__LINE__,__FILE__);
 
 		//connessione al server e invio somma e n_file
 		int fd_socket = 0;
@@ -179,12 +180,12 @@ int main(int argc, char *argv[]) {
       default:
         fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t delay]\n",
         argv[0]);
-        exit(EXIT_FAILURE);
+        xtermina("Errore dati input", __LINE__,__FILE__);
       }
   }
 	if (optind >= argc) {
     fprintf(stderr, "Expected argument after options\n");
-    exit(EXIT_FAILURE);
+    xtermina("Errore dati input", __LINE__,__FILE__);
   }
 
   // threads related
@@ -233,7 +234,7 @@ int main(int argc, char *argv[]) {
 
 	for (int i=0; i<nthread; i++) {
 		xsem_wait(&sem_free_slots,__LINE__,__FILE__);
-		buffer[pindex++ % qlen] = "t";
+		buffer[pindex++ % qlen] = NULL;
     xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
 	

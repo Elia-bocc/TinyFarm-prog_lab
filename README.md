@@ -26,8 +26,8 @@ Progetto LaboratorioII
 
 
 	TERMINAZIONE CONSUMATORI
-		Per la terminazione dei consumatori scrivo semplicemente nel buffer la stringa
-		"t", il consumatore la legge, esce dal ciclo while e termina con pthread_exit().
+		Per la terminazione dei consumatori scrivo semplicemente nel buffer il valore
+		NULL, il consumatore la legge, esce dal ciclo while e termina con pthread_exit().
 
 	FORMATO DATI CLIENT/SERVER
 		il formato con cui vengono inviati i dati è così definito:
@@ -54,6 +54,7 @@ Progetto LaboratorioII
 		dal ciclo while, fa la join dei threads ed infine termina la connessione; se il messaggio
 		di terminazione non arriva allora procede alla ricezione della restante parte dei dati
 		che poi stamperò.
+		Il server, eventualmente, può terminare anche con Ctrl-C da tastiera
 
 	PER ALTRI DETTAGLI CI SONO I COMMENTI NEL CODICE
 	
