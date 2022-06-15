@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import sys, struct, socket, threading, signal, os, time
+import sys, struct, socket, threading, signal, os
 
 # host e porta di default
 HOST = "127.0.0.1"
@@ -39,7 +39,6 @@ def main(host=HOST,port=PORT):
 # gestisci una singola connessione
 # con un client
 # prende come parametri la socket conn, l indirizzo addr,
-# il pid del thread principale
 def gestisci_connessione(conn,addr): 
   # in questo caso potrei usare direttamente conn
   # e l'uso di with serve solo a garantire che

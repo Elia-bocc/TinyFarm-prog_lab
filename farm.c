@@ -201,14 +201,14 @@ int main(int argc, char *argv[]) {
 		a[i].cmutex = &cmutex;
     a[i].sem_data_items = &sem_data_items;
     a[i].sem_free_slots = &sem_free_slots;
-    xpthread_create(&t[i],NULL,tbody,a+i,__LINE__,__FILE__);
+    xpthread_create(&t[i],NULL,&tbody,a+i,__LINE__,__FILE__);
   }
 
 	//lancio il thread gestore
 	volatile sig_atomic_t c = true;
 	dgest arg;
 	arg.c = &c;
-	xpthread_create(&t[nthread],NULL,tgestore, &arg,__LINE__, __FILE__);
+	xpthread_create(&t[nthread],NULL,&tgestore, &arg,__LINE__, __FILE__);
 
 	
 	//produttore
@@ -220,7 +220,6 @@ int main(int argc, char *argv[]) {
 		buffer[pindex++ % qlen] = argv[i];
 		xsem_post(&sem_data_items,__LINE__,__FILE__);
 	}
-
 
 	
 	//terminazione gestore
