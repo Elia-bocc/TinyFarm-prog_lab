@@ -2,11 +2,6 @@
 #define HOST "127.0.0.1"
 #define PORT 65432 
 
-//mettere gli assert
-//levare stampe dal collector
-//provare a mandare null come messaggio di terminazione
-//strtol
-//sem unlink
 
 //dati per il gestore seganli
 
